@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "114",
+  "name": "Animalex Bridge",
+  "version": "0.1.0",
+  "description": "Ponte entre a Animalex e parceiros (Petlove etc) rodando no navegador do usuário.",
+  "permissions": ["storage", "cookies", "alarms", "scripting", "activeTab", "sidePanel"],
+  "host_permissions": [
+    "https://central-de-saude.petlove.com.br/*",
+    "https://api.petlove.com.br/*",
+    "https://www.petlove.com.br/*",
+    "https://www.animalex.com.br/*",
+    "https://app.animalex.com.br/*",
+    "http://localhost:8100/*",
+    "http://localhost:8000/*",
+    "http://localhost:5000/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    },
+    "default_title": "Abrir Animalex Bridge"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://central-de-saude.petlove.com.br/*",
+        "https://www.petlove.com.br/*"
+      ],
+      "js": ["modules/petlove/session.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

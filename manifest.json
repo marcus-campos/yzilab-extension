@@ -11,6 +11,7 @@
     "https://www.petlove.com.br/*",
     "https://www.animalex.com.br/*",
     "https://app.animalex.com.br/*",
+    "https://api-df.animalex.com.br/*",
     "http://localhost:8100/*",
     "http://localhost:8000/*",
     "http://localhost:5000/*"

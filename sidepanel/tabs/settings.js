@@ -2,7 +2,7 @@ import { MSG, send } from "../../lib/messages.js";
 import { el, clear, toast } from "../../ui/components.js";
 
 const BASE_PRESETS = [
-  { label: "Produção (app.animalex.com.br)", value: "https://app.animalex.com.br" },
+  { label: "Produção (api-df.animalex.com.br)", value: "https://api-df.animalex.com.br" },
   { label: "Local (localhost:8100)", value: "http://localhost:8100" },
   { label: "Local (localhost:8000)", value: "http://localhost:8000" },
 ];

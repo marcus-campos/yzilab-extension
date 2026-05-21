@@ -2,30 +2,29 @@ import { MSG, send } from "../../lib/messages.js";
 import { el, openModal, toast, asyncSearchSelect } from "../../ui/components.js";
 
 // Modal de mapeamento — espelha resolve_request.html do desktop.
-//   - Clínica (asyncSearchSelect, paginado)
-//   - Veterinário (asyncSearchSelect filtrado por clínica selecionada, recriado ao trocar clínica)
-//   - Exames: 1 linha por exame externo, cada uma com asyncSearchSelect
+//   - Clínica (asyncSearchSelect, paginado, com grupos clínica/encaminhamento)
+//   - Veterinário (asyncSearchSelect filtrado por clínica; recriado ao trocar clínica)
+//   - Espécie + Raça (asyncSearchSelect; raça filtrada pela espécie)
+//   - Exames: 1 linha por exame externo
 //   - Checkbox "Salvar estes vínculos" (default checked)
 //   - Sempre abre, mesmo se totalmente mapeado, para revisão.
 export function openMappingModal(item, { onProcessed }) {
   openModal(
     ({ body, close }) => {
-      // Alert resumo do pet
-      const petSummary = el(
-        "div",
-        { class: "alert-success" },
-        [
+      // Alert resumo do pet — esconde tokens vazios ou "Não informado"
+      const summaryParts = [];
+      if (isInformative(item.pet?.species)) summaryParts.push(item.pet.species);
+      if (isInformative(item.pet?.breed_external_name)) summaryParts.push(item.pet.breed_external_name);
+      if (item.pet?.tutor_name) summaryParts.push(`Tutor: ${item.pet.tutor_name}`);
+      body.appendChild(
+        el("div", { class: "alert-success" }, [
           el("strong", {}, item.pet?.name || "Sem nome"),
-          " · ",
-          (item.pet?.species || "—"),
-          item.pet?.breed_external_name ? ` · ${item.pet.breed_external_name}` : "",
-          item.pet?.tutor_name ? ` · Tutor: ${item.pet.tutor_name}` : "",
-        ]
+          summaryParts.length ? ` · ${summaryParts.join(" · ")}` : "",
+        ])
       );
-      body.appendChild(petSummary);
 
       // ─── Clínica ────
-      body.appendChild(el("h4", { class: "modal-section" }, "Clínica"));
+      body.appendChild(el("h4", { class: "modal-section" }, "Clínica *"));
       body.appendChild(
         el(
           "p",
@@ -33,18 +32,21 @@ export function openMappingModal(item, { onProcessed }) {
           `Origem: ${item.clinic?.external_name || "-"}`
         )
       );
-      const clinicLabel = el("label", {}, "Vincular à clínica *");
       const clinicSelect = asyncSearchSelect({
         placeholder: "Selecione…",
         fetchPage: ({ q, page }) => send(MSG.YZILAB_SEARCH_CLINICS, { q, page }),
         mapItem: (c) => ({
           id: c.id,
-          text: c.cnpj ? `${c.fantasy_name} (${c.cnpj})` : c.fantasy_name,
+          text: c.fantasy_name || c.corporate_name || c.cnpj || c.id,
+          group: c.is_referral ? "Clínicas de encaminhamento" : "Clínicas",
         }),
-        preset: presetFrom(item.clinic_id || item.clinic_suggestion_id, item.clinic_name || item.clinic_suggestion_name),
+        preset: presetFrom(
+          item.clinic_id || item.clinic_suggestion_id,
+          item.clinic_name || item.clinic_suggestion_name
+        ),
         onChange: () => rebuildVetSelect(),
       });
-      body.appendChild(el("div", { class: "field" }, [clinicLabel, clinicSelect]));
+      body.appendChild(el("div", { class: "field" }, [clinicSelect]));
 
       // ─── Veterinário ────
       body.appendChild(el("h4", { class: "modal-section" }, "Veterinário"));
@@ -52,17 +54,17 @@ export function openMappingModal(item, { onProcessed }) {
         ? `${item.veterinary.external_name}${item.veterinary.external_crmv ? " (" + item.veterinary.external_crmv + ")" : ""}`
         : "-";
       body.appendChild(el("p", { class: "small muted modal-origin" }, `Origem: ${vetOriginText}`));
-      const vetLabel = el("label", {}, "Vincular ao veterinário");
       const vetWrapper = el("div", {});
       let vetSelect = null;
-      function rebuildVetSelect() {
+      // No mount inicial usa o preset enriquecido do backend; ao trocar de
+      // clínica o vet anterior é de outra clínica e não faz mais sentido —
+      // limpa.
+      function rebuildVetSelect({ keepInitialPreset = false } = {}) {
         const clinicId = clinicSelect.currentValue();
-        const oldPreset = vetSelect
-          ? { id: vetSelect.currentValue(), text: vetSelect.currentText() }
-          : presetFrom(
-              item.veterinary_id || item.veterinary_suggestion_id,
-              item.veterinary_name || item.veterinary_suggestion_name
-            );
+        const initialPreset = presetFrom(
+          item.veterinary_id || item.veterinary_suggestion_id,
+          item.veterinary_name || item.veterinary_suggestion_name
+        );
         const next = asyncSearchSelect({
           placeholder: clinicId ? "Selecione (opcional)…" : "Selecione uma clínica primeiro",
           fetchPage: ({ q, page }) => send(MSG.YZILAB_SEARCH_VETERINARIES, { q, page, clinicId }),
@@ -70,15 +72,40 @@ export function openMappingModal(item, { onProcessed }) {
             id: v.id,
             text: v.crmv ? `${v.name} (${v.crmv})` : v.name,
           }),
-          preset: oldPreset && oldPreset.id ? oldPreset : null,
+          preset: keepInitialPreset && initialPreset ? initialPreset : null,
           allowClear: true,
           disabled: !clinicId,
         });
         vetWrapper.replaceChildren(next);
         vetSelect = next;
       }
-      rebuildVetSelect();
-      body.appendChild(el("div", { class: "field" }, [vetLabel, vetWrapper]));
+      rebuildVetSelect({ keepInitialPreset: true });
+      body.appendChild(el("div", { class: "field" }, [vetWrapper]));
+
+      // ─── Raça / Espécie (a espécie vem implícita pela FK Breed.specie) ────
+      body.appendChild(el("h4", { class: "modal-section" }, "Raça / Espécie *"));
+      const breedOriginParts = [];
+      if (isInformative(item.pet?.species)) breedOriginParts.push(item.pet.species);
+      if (isInformative(item.pet?.breed_external_name)) breedOriginParts.push(item.pet.breed_external_name);
+      body.appendChild(
+        el(
+          "p",
+          { class: "small muted modal-origin" },
+          `Origem: ${breedOriginParts.length ? breedOriginParts.join(" · ") : "-"}`
+        )
+      );
+      const breedPreset = pickBreedPreset(item);
+      const breedSelect = asyncSearchSelect({
+        placeholder: "Selecione…",
+        fetchPage: ({ q, page }) => send(MSG.YZILAB_SEARCH_BREEDS, { q, page }),
+        mapItem: (b) => ({
+          id: b.id,
+          text: b.name,
+          group: b.specie_name || "Outros",
+        }),
+        preset: breedPreset,
+      });
+      body.appendChild(el("div", { class: "field" }, [breedSelect]));
 
       // ─── Exames ────
       body.appendChild(el("h4", { class: "modal-section" }, "Exames"));
@@ -136,6 +163,11 @@ export function openMappingModal(item, { onProcessed }) {
           toast("Selecione a clínica", { type: "error" });
           return;
         }
+        const breedId = breedSelect && breedSelect.currentValue();
+        if (!breedId) {
+          toast("Selecione a raça", { type: "error" });
+          return;
+        }
         const examMappings = [];
         for (const exam of item.exams || []) {
           const sel = examSelectByExternal.get(exam.external_id);
@@ -157,6 +189,7 @@ export function openMappingModal(item, { onProcessed }) {
             clinicId,
             veterinaryId: (vetSelect && vetSelect.currentValue()) || null,
             examMappings,
+            breedId,
             saveMappings: saveMappingsCheckbox.checked,
           });
           toast(`Pedido criado: protocolo ${result.protocol}`, { type: "success" });
@@ -164,7 +197,7 @@ export function openMappingModal(item, { onProcessed }) {
           onProcessed && onProcessed(result);
         } catch (err) {
           statusLine.textContent = "";
-          toast(`Falha: ${err.message}`, { type: "error", duration: 6000 });
+          toast(err.message || "Erro ao importar requisição", { type: "error", duration: 7000 });
           submitBtn.disabled = false;
           cancelBtn.disabled = false;
         }
@@ -177,4 +210,37 @@ export function openMappingModal(item, { onProcessed }) {
 function presetFrom(id, text) {
   if (!id) return null;
   return { id: String(id), text: text || String(id) };
+}
+
+// Pré-seleção da raça:
+//  1) breed_id (mapping salvo) — sempre pré-seleciona
+//  2) breed_suggestion_id — pré-seleciona EXCETO quando a raça externa é vazia,
+//     "não informado" ou variação de SRD (chute do sistema nesses casos não ajuda).
+const UNINFORMATIVE_BREED_NAMES = new Set([
+  "",
+  "nao informado",
+  "não informado",
+  "sem informacao",
+  "sem informação",
+  "srd",
+  "sem raca definida",
+  "sem raça definida",
+  "indefinida",
+  "indefinido",
+]);
+
+function isInformative(value) {
+  const norm = (value || "").trim().toLowerCase();
+  return norm !== "" && !UNINFORMATIVE_BREED_NAMES.has(norm);
+}
+
+function pickBreedPreset(item) {
+  if (item.breed_id) {
+    return presetFrom(item.breed_id, item.breed_name);
+  }
+  if (!isInformative(item.pet?.breed_external_name)) return null;
+  if (item.breed_suggestion_id) {
+    return presetFrom(item.breed_suggestion_id, item.breed_suggestion_name);
+  }
+  return null;
 }

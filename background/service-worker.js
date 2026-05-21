@@ -171,7 +171,7 @@ async function fetchPetloveInbox(filters = {}) {
   }));
 }
 
-async function processPetloveRequest({ externalRequestId, normalized, clinicId, veterinaryId, examMappings }) {
+async function processPetloveRequest({ externalRequestId, normalized, clinicId, veterinaryId, examMappings, breedId, saveMappings }) {
   const hiId = await resolvePetloveHealthInsuranceId();
   // remover campos extras de enrichment antes de mandar como normalized
   const cleanNormalized = stripEnrichment(normalized);
@@ -179,6 +179,8 @@ async function processPetloveRequest({ externalRequestId, normalized, clinicId, 
     clinicId,
     veterinaryId,
     examMappings,
+    breedId,
+    saveMappings,
     normalized: cleanNormalized,
   });
 }
@@ -188,6 +190,8 @@ function stripEnrichment(normalized) {
   const {
     clinic_id, clinic_name, clinic_suggestion_id, clinic_suggestion_name,
     veterinary_id, veterinary_name, veterinary_suggestion_id, veterinary_suggestion_name,
+    breed_id, breed_name, breed_suggestion_id, breed_suggestion_name,
+    specie_id, specie_name, specie_suggestion_id, specie_suggestion_name,
     already_processed, health_insurance_id,
     exams,
     ...rest
@@ -356,6 +360,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case MSG.YZILAB_SEARCH_VETERINARIES:
       return reply(sendResponse, () => yzilab.searchVeterinaries(payload || {}));
+
+    case MSG.YZILAB_SEARCH_SPECIES:
+      return reply(sendResponse, () => yzilab.searchSpecies(payload || {}));
+
+    case MSG.YZILAB_SEARCH_BREEDS:
+      return reply(sendResponse, () => yzilab.searchBreeds(payload || {}));
 
     case MSG.YZILAB_RESULT_PUSH_QUEUE:
       return reply(sendResponse, () => yzilab.resultPushQueue(payload || {}));

@@ -372,6 +372,17 @@ table.data tr:hover td {
   text-align: center;
 }
 .asel-error { color: var(--danger); }
+.asel-group-header {
+  padding: 6px 10px 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  border-top: 1px solid var(--border-soft);
+  margin-top: 2px;
+}
+.asel-group-header:first-child { border-top: none; margin-top: 0; }
 
 /* ─── filtros colapsáveis + cards de inbox ─────────────────────────────── */
 .filters-toolbar {

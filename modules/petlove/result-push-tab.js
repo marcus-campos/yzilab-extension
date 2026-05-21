@@ -154,6 +154,7 @@ async function mountAutoHistory(container, settings) {
   const statusFilter = el("select", { style: { maxWidth: "180px" } });
   for (const opt of [
     { v: "all", l: "Todos status" },
+    { v: "awaiting_results", l: "Aguardando resultados" },
     { v: "completed", l: "Concluídos" },
     { v: "failed", l: "Falhas" },
     { v: "accepted", l: "Em andamento" },

@@ -178,7 +178,16 @@ export function asyncSearchSelect({
       listEl.appendChild(el("div", { class: "asel-empty" }, "Sem resultados."));
       return;
     }
-    for (const it of items) {
+    const hasGroups = items.some((it) => it.group);
+    const ordered = hasGroups
+      ? [...items].sort((a, b) => (a.group || "").localeCompare(b.group || ""))
+      : items;
+    let lastGroup = null;
+    for (const it of ordered) {
+      if (hasGroups && it.group !== lastGroup) {
+        lastGroup = it.group;
+        listEl.appendChild(el("div", { class: "asel-group-header" }, it.group || ""));
+      }
       const item = el(
         "div",
         {

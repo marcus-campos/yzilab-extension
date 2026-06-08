@@ -175,8 +175,9 @@ export function openMappingModal(item, { onProcessed }) {
           fetchPage: ({ q, page }) => send(MSG.YZILAB_SEARCH_EXAMS, { q, page }),
           mapItem: (e) => ({
             id: e.id,
-            text: e.category_name ? `${e.name} — ${e.category_name}` : e.name,
-            group: e.category_name || "Outros",
+            text: e.name,
+            selectedText: e.category_name ? `${e.name} — ${e.category_name}` : e.name,
+            group: e.category_name || null,
           }),
           preset: presetFrom(
             exam.exam_id || exam.exam_suggestion_id,

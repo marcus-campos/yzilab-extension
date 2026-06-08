@@ -144,7 +144,7 @@ export function asyncSearchSelect({
 
   function setSelected(next) {
     selected = next;
-    controlText.textContent = next ? next.text : placeholder;
+    controlText.textContent = next ? (next.selectedText || next.text) : placeholder;
     controlText.classList.toggle("muted", !next);
     if (onChange) onChange(next);
   }
@@ -166,9 +166,9 @@ export function asyncSearchSelect({
       : items;
     let lastGroup = null;
     for (const it of ordered) {
-      if (hasGroups && it.group !== lastGroup) {
+      if (hasGroups && it.group && it.group !== lastGroup) {
         lastGroup = it.group;
-        listEl.appendChild(el("div", { class: "asel-group-header" }, it.group || ""));
+        listEl.appendChild(el("div", { class: "asel-group-header" }, it.group));
       }
       const item = el(
         "div",

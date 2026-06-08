@@ -1,9 +1,5 @@
-// Cliente Petlove. Roda no service worker. credentials:'include' anexa cookies do Chrome real
-// do usuário (cf_clearance, __cf_bm, health_partners_session, XSRF-TOKEN), o que é o que faz
-// o Cloudflare aceitar — diferente de tentativas server-side.
 import { request } from "../../lib/http.js";
 
-// Mesmo host do portal central-de-saude.petlove.com.br (vide HEALTH_INSURANCE_PETLOVE_URL).
 const BASE = "https://central-de-saude.petlove.com.br";
 
 function authHeaders(session) {
@@ -59,6 +55,19 @@ export async function getRequestDetail(session, requestId) {
     headers: authHeaders(session),
     credentials: "include",
   });
+  return data;
+}
+
+export async function getPetDetail(session, microchip) {
+  if (!microchip) throw new Error("microchip ausente");
+  const { data } = await request(
+    `${BASE}/api/atendimento/${encodeURIComponent(microchip)}`,
+    {
+      method: "GET",
+      headers: authHeaders(session),
+      credentials: "include",
+    }
+  );
   return data;
 }
 

@@ -496,7 +496,22 @@ table.data tr:hover td {
   border-radius: var(--radius);
   font-size: 12px;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
+.alert-success .summary-text { flex: 1; min-width: 0; }
+.alert-success .small-btn {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #0a7e44;
+  border-color: rgba(17, 202, 109, 0.35);
+  white-space: nowrap;
+}
+.alert-success .small-btn:hover { background: #fff; }
+.alert-success .small-btn[disabled] { opacity: 0.5; }
 .modal-section {
   margin: 14px 0 4px 0;
   font-size: 13px;

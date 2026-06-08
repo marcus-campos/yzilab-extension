@@ -1,4 +1,3 @@
-// Service worker MV3. Abre side panel ao clicar no ícone e roteia mensagens.
 import { MSG, reply } from "../lib/messages.js";
 import { local, session, KEYS, getSettings, setSettings } from "../lib/storage.js";
 import { log } from "../lib/logger.js";
@@ -21,7 +20,6 @@ chrome.runtime.onStartup.addListener(async () => {
   await applyAutoSyncSchedule();
 });
 
-// Fallback se algum browser ignorar setPanelBehavior — clicar no ícone abre o painel.
 chrome.action.onClicked.addListener(async (tab) => {
   try {
     await chrome.sidePanel.open({ windowId: tab.windowId });
@@ -29,13 +27,6 @@ chrome.action.onClicked.addListener(async (tab) => {
     log.warn("action.onClicked: sidePanel.open failed", err);
   }
 });
-
-// ─── Petlove session ───────────────────────────────────────────────────────
-// A autenticação real é via cookie `health_partners_session` (anexado automaticamente
-// quando o fetch usa credentials:'include'). CSRF segue padrão Laravel: cookie
-// XSRF-TOKEN é decodificado e ecoado no header X-XSRF-TOKEN.
-// access_token (Bearer) é opcional — só usado se existir como cookie ou se o
-// content script tiver capturado de localStorage.
 
 const PETLOVE_PORTAL_URL = "https://central-de-saude.petlove.com.br/";
 
@@ -64,8 +55,6 @@ async function readPetloveCookieSession() {
       xsrf = xsrfRaw;
     }
   }
-  // O cookie `user` na central-de-saude.petlove.com.br é JSON URI-encoded:
-  //   {"token_type":"Bearer","access_token":"…","user_id":…,…}
   let accessFromUserCookie = null;
   let tokenType = null;
   let userId = null;
@@ -88,8 +77,6 @@ async function readPetloveCookieSession() {
   };
 }
 
-// Vem do content script (caso a Petlove guarde access_token em localStorage).
-// Em produção pode não ser necessário — o cookie sozinho costuma autenticar.
 async function handlePetloveSession(payload) {
   const next = {
     access_token: payload.access_token || null,
@@ -146,7 +133,6 @@ async function getPetloveSessionInfo() {
   };
 }
 
-// ─── Cache do HealthInsurance "Petlove" ────────────────────────────────────
 async function resolvePetloveHealthInsuranceId() {
   let cached = await local.get(KEYS.HEALTH_INSURANCE_PETLOVE);
   if (cached && cached.id) return cached.id;
@@ -157,14 +143,12 @@ async function resolvePetloveHealthInsuranceId() {
   return found.id;
 }
 
-// ─── Petlove inbox flow ────────────────────────────────────────────────────
 async function fetchPetloveInbox(filters = {}) {
   const sess = await getPetloveSession();
   const raw = await petloveApi.listAllPending(sess, filters);
   log.info("petlove pending fetched", { count: raw.length });
   const hiId = await resolvePetloveHealthInsuranceId();
   const enriched = await yzilab.examRequestsFromExtension(hiId, raw);
-  // anexa o raw correspondente para o process passar `normalized` (já enriquecido)
   return enriched.map((item) => ({
     ...item,
     health_insurance_id: hiId,
@@ -173,7 +157,6 @@ async function fetchPetloveInbox(filters = {}) {
 
 async function processPetloveRequest({ externalRequestId, normalized, clinicId, veterinaryId, examMappings, breedId, saveMappings }) {
   const hiId = await resolvePetloveHealthInsuranceId();
-  // remover campos extras de enrichment antes de mandar como normalized
   const cleanNormalized = stripEnrichment(normalized);
   return yzilab.processExamRequest(hiId, externalRequestId, {
     clinicId,
@@ -203,7 +186,6 @@ function stripEnrichment(normalized) {
   return { ...rest, exams: cleanExams };
 }
 
-// ─── Petlove result push ───────────────────────────────────────────────────
 async function pushOneResult({ mappingIds, externalRequestId, attachments }) {
   const sess = await getPetloveSession();
   try {
@@ -234,7 +216,6 @@ async function pushOneResult({ mappingIds, externalRequestId, attachments }) {
   }
 }
 
-// ─── Auto-sync (modo automático via chrome.alarms) ─────────────────────────
 const autoSyncState = {
   running: false,
   lastRunAt: null,
@@ -276,7 +257,6 @@ async function runAutoSyncRound(triggerReason = "manual") {
   const errors = [];
 
   try {
-    // requer sessão Petlove
     try {
       await getPetloveSession();
     } catch (err) {
@@ -320,7 +300,6 @@ function getAutoSyncStatus(settings) {
   }
 }
 
-// ─── Message routing ───────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const { type, payload } = message || {};
 
@@ -339,6 +318,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case MSG.PETLOVE_PUSH_RESULT:
       return reply(sendResponse, () => pushOneResult(payload || {}));
+
+    case MSG.PETLOVE_GET_PET_DETAIL:
+      return reply(sendResponse, async () => {
+        const sess = await getPetloveSession();
+        return petloveApi.getPetDetail(sess, payload?.microchip);
+      });
 
     case MSG.YZILAB_LOGIN:
       return reply(sendResponse, () => yzilab.login(payload.email, payload.password));

@@ -1,5 +1,3 @@
-// Componentes UI mínimos: criação de elementos, toast, modal.
-
 export function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -30,7 +28,6 @@ export function clear(container) {
   while (container.firstChild) container.removeChild(container.firstChild);
 }
 
-// ─── Toasts ─────────────────────────────────────────────────────────────────
 let toastContainer;
 function ensureToastContainer() {
   if (!toastContainer) {
@@ -51,7 +48,6 @@ export function toast(message, { type = "info", duration = 3000 } = {}) {
   }, duration);
 }
 
-// ─── Modal ──────────────────────────────────────────────────────────────────
 export function openModal(renderBody, { title = "" } = {}) {
   const backdrop = el("div", { class: "modal-backdrop" });
   const modal = el("div", { class: "modal" });
@@ -68,7 +64,6 @@ export function openModal(renderBody, { title = "" } = {}) {
   return { close };
 }
 
-// ─── Table ─────────────────────────────────────────────────────────────────
 export function table(columns, rows, { empty = "Nenhum item." } = {}) {
   if (!rows || rows.length === 0) {
     return el("div", { class: "empty-state" }, empty);
@@ -108,16 +103,6 @@ export function spinnerText(message = "Carregando…") {
   return el("div", { class: "muted small" }, message);
 }
 
-// ─── asyncSearchSelect ─────────────────────────────────────────────────────
-// Substituto leve de Select2 para o painel. Mostra um input "selecionado" + dropdown
-// com busca paginada e scroll infinito.
-//
-// fetchPage: async ({q, page}) => {results, count, page, totalPages}
-// mapItem:   (item) => ({id, text})
-// preset:    {id, text} opcional para pré-selecionar
-// onChange:  (selected|null) => void
-//
-// Retorna o root HTMLElement. .currentValue() e .currentText() para ler.
 export function asyncSearchSelect({
   placeholder = "Selecione…",
   fetchPage,
@@ -129,17 +114,15 @@ export function asyncSearchSelect({
 }) {
   const root = el("div", { class: "asel" });
 
-  // estado
   let selected = preset && preset.id ? { id: String(preset.id), text: preset.text || "" } : null;
   let isOpen = false;
   let isLoading = false;
   let q = "";
   let page = 1;
   let totalPages = 1;
-  let items = []; // {id, text}
+  let items = [];
   let debounceTimer = null;
 
-  // controle/header (campo "fechado" mostrando selecionado)
   const controlText = el("span", { class: "asel-control-text" }, selected ? selected.text : placeholder);
   if (!selected) controlText.classList.add("muted");
   const clearBtn = allowClear
@@ -152,7 +135,6 @@ export function asyncSearchSelect({
     [controlText, clearBtn, caret].filter(Boolean)
   );
 
-  // dropdown
   const searchInput = el("input", { type: "text", class: "asel-search", placeholder: "Buscar…" });
   const listEl = el("div", { class: "asel-list" });
   const dropdown = el("div", { class: "asel-dropdown", style: { display: "none" } }, [searchInput, listEl]);
@@ -266,7 +248,6 @@ export function asyncSearchSelect({
     debounceTimer = setTimeout(() => fetchAndAppend({ reset: true }), 250);
   });
 
-  // scroll infinito
   listEl.addEventListener("scroll", () => {
     if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 8) {
       if (!isLoading && page < totalPages) {

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "114",
   "name": "Animalex Bridge",
-  "version": "0.1.3",
+  "version": "0.1.8",
   "description": "Ponte entre a Animalex e parceiros (Petlove etc) rodando no navegador do usuário.",
   "permissions": ["storage", "cookies", "alarms", "scripting", "activeTab", "sidePanel"],
   "host_permissions": [

@@ -14,6 +14,9 @@ const FILTER_DEFS = [
 export async function mountInboxTab(container) {
   clear(container);
 
+  const settings = await send(MSG.GET_SETTINGS).catch(() => ({}));
+  const frontBaseUrl = (settings?.yzilabFrontUrl || "https://app.animalex.com.br").replace(/\/$/, "");
+
   const filterInputs = new Map();
 
   // ── Pill de filtros (colapsado por padrão) ──
@@ -132,13 +135,18 @@ export async function mountInboxTab(container) {
     listEl.appendChild(spinnerText("buscando pendentes na Petlove…"));
     try {
       const items = await send(MSG.PETLOVE_FETCH_INBOX, readFilters());
+      items.sort((a, b) => {
+        const da = parseRequestDate(a.created_at)?.getTime() || 0;
+        const db = parseRequestDate(b.created_at)?.getTime() || 0;
+        return db - da;
+      });
       statusEl.textContent = `${items.length} pendentes`;
       clear(listEl);
       if (items.length === 0) {
         listEl.appendChild(el("div", { class: "empty-state" }, "Nenhum pedido pendente."));
       } else {
         for (const item of items) {
-          listEl.appendChild(renderCard(item, refresh));
+          listEl.appendChild(renderCard(item, refresh, { frontBaseUrl }));
         }
       }
       setFiltersOpen(false);
@@ -164,10 +172,11 @@ export async function mountInboxTab(container) {
   refresh();
 }
 
-function renderCard(item, onProcessed) {
+function renderCard(item, onProcessed, { frontBaseUrl } = {}) {
   const card = el("div", { class: "inbox-card" });
 
-  // Header
+  const statusBadges = buildStatusBadges(item);
+
   const header = el(
     "div",
     { class: "card-header-row" },
@@ -183,7 +192,7 @@ function renderCard(item, onProcessed) {
         ),
       ]),
       el("div", { class: "card-header-right" }, [
-        badge("Petlove", "success"),
+        el("div", { class: "card-header-badges" }, [badge("Petlove", "info"), ...statusBadges]),
         el("div", { class: "small muted" }, `#${item.external_request_id}`),
       ]),
     ]
@@ -244,14 +253,19 @@ function renderCard(item, onProcessed) {
     );
   }
 
-  // Suspeita clínica
   if (item.clinical_suspicion) {
-    card.appendChild(
-      el("div", { class: "field-row" }, [
-        el("small", { class: "muted" }, "Suspeita clínica"),
-        el("em", {}, item.clinical_suspicion),
-      ])
+    const suspNorm = item.clinical_suspicion.trim();
+    const duplicated = (item.clinical_info || []).some(
+      (info) => (info.value || "").trim() === suspNorm
     );
+    if (!duplicated) {
+      card.appendChild(
+        el("div", { class: "field-row" }, [
+          el("small", { class: "muted" }, "Suspeita clínica"),
+          el("em", {}, item.clinical_suspicion),
+        ])
+      );
+    }
   }
 
   // Notas
@@ -264,14 +278,37 @@ function renderCard(item, onProcessed) {
     );
   }
 
-  // Footer
-  const processBtn = el("button", { class: "primary" }, "Iniciar processamento");
-  processBtn.addEventListener("click", () => openMappingModal(item, { onProcessed }));
+  const processBtn = item.already_processed
+    ? el("button", { class: "secondary", disabled: true, title: "Esse pedido já foi importado anteriormente" }, "Aguardando resultados")
+    : el("button", { class: "primary" }, "Iniciar processamento");
+  if (!item.already_processed) {
+    processBtn.addEventListener("click", () => openMappingModal(item, { onProcessed }));
+  }
+
+  const footerLeft = el("div", { class: "footer-left" }, [
+    el("small", { class: "muted" }, item.created_at ? `Recebido: ${item.created_at}` : ""),
+  ]);
+  if (item.already_processed && Array.isArray(item.imported_protocols) && item.imported_protocols.length) {
+    const protocolsRow = el("div", { class: "small protocols-row" }, ["Protocolo: "]);
+    item.imported_protocols.forEach((p, i) => {
+      const link = el(
+        "a",
+        { href: "#", class: "protocol-link", title: "Abrir no sistema" },
+        `#${p}`
+      );
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        const url = `${frontBaseUrl}/exam/?q=${encodeURIComponent(p)}&filter_by=protocol`;
+        chrome.tabs.create({ url });
+      });
+      if (i > 0) protocolsRow.appendChild(document.createTextNode(" · "));
+      protocolsRow.appendChild(link);
+    });
+    footerLeft.appendChild(protocolsRow);
+  }
+
   card.appendChild(
-    el("div", { class: "card-footer-row" }, [
-      el("small", { class: "muted" }, item.created_at ? `Recebido: ${item.created_at}` : ""),
-      processBtn,
-    ])
+    el("div", { class: "card-footer-row" }, [footerLeft, processBtn])
   );
 
   return card;
@@ -306,3 +343,28 @@ function formatAge(age) {
   return `${years} ano${years > 1 ? "s" : ""}`;
 }
 
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+
+function parseRequestDate(value) {
+  if (!value) return null;
+  const iso = new Date(value);
+  if (!isNaN(iso.getTime())) return iso;
+  const m = String(value).match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  let [, d, mo, y, h, mi] = m;
+  y = y.length === 2 ? 2000 + Number(y) : Number(y);
+  return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+}
+
+function buildStatusBadges(item) {
+  const out = [];
+  const created = parseRequestDate(item.created_at);
+  if (created) {
+    const ageMs = Date.now() - created.getTime();
+    if (ageMs < FIVE_HOURS_MS) out.push(badge("Novo", "success"));
+    else if (ageMs > FIFTEEN_DAYS_MS) out.push(badge("Ainda vai ser processado?", "warning"));
+  }
+  if (item.already_processed) out.push(badge("Aguardando resultados", "neutral"));
+  return out;
+}

@@ -220,6 +220,7 @@ table.data tr:hover td {
 .badge.warning { background: rgba(252, 198, 68, 0.22); color: #c79406; }
 .badge.danger { background: rgba(243, 93, 93, 0.18); color: var(--danger); }
 .badge.info { background: rgba(67, 191, 229, 0.18); color: var(--info); }
+.badge.neutral { background: rgba(152, 166, 173, 0.18); color: var(--muted); }
 
 .muted { color: var(--muted); }
 .small { font-size: 11px; }
@@ -466,6 +467,13 @@ table.data tr:hover td {
   color: var(--text);
 }
 .card-header-right { text-align: right; }
+.card-header-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 2px;
+}
 .two-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -486,6 +494,14 @@ table.data tr:hover td {
   padding-top: 8px;
   border-top: 1px solid var(--border-soft);
 }
+.footer-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.protocols-row { color: var(--muted); }
+.protocol-link {
+  color: var(--brand-strong);
+  text-decoration: none;
+  font-weight: 600;
+}
+.protocol-link:hover { text-decoration: underline; }
 
 /* ─── modal de mapeamento ──────────────────────────────────────────────── */
 .alert-success {

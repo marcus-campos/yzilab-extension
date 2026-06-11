@@ -83,14 +83,52 @@ export async function getPetDetail(session, microchip) {
   return data;
 }
 
-export async function acceptRequest(session, requestId) {
-  const { data } = await request(`${BASE}/api/requests-evaluation/${requestId}/accept`, {
-    method: "POST",
+const ACCEPT_TOLERATED_STATUS = new Set([400, 404, 409, 422]);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function getRequestStatus(session, requestId) {
+  const params = new URLSearchParams();
+  params.set("page", "1");
+  params.set("perPage", "10");
+  params.set("treatmentId", String(requestId));
+  const { data } = await request(`${BASE}/api/v2/requests?${params.toString()}`, {
+    method: "GET",
     headers: authHeaders(session),
-    body: { partialRefuse: [], refusalReason: "" },
     credentials: "include",
   });
-  return data;
+  const items = (data && data.data) || [];
+  const found = items.find((it) => String(it.id) === String(requestId)) || items[0] || null;
+  return found ? found.status : null;
+}
+
+export async function acceptRequest(session, requestId, { maxRetries = 2, retryDelayMs = 3000 } = {}) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const { data } = await request(`${BASE}/api/requests-evaluation/${requestId}/accept`, {
+        method: "POST",
+        headers: authHeaders(session),
+        body: { partialRefuse: [], refusalReason: "" },
+        credentials: "include",
+      });
+      return { ok: true, data };
+    } catch (err) {
+      if (!err || !ACCEPT_TOLERATED_STATUS.has(err.status)) throw err;
+
+      const status = await getRequestStatus(session, requestId).catch(() => null);
+      if (status && status !== "pending") {
+        return { ok: true, already_processed: true, status };
+      }
+
+      if (attempt < maxRetries) {
+        await sleep(retryDelayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 export async function completeRequest(session, requestId, attachments) {

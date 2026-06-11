@@ -23,6 +23,18 @@ function manageLink(frontBaseUrl) {
   return link;
 }
 
+function protocolCell(protocol, frontBaseUrl) {
+  if (!protocol) return "—";
+  if (!frontBaseUrl) return String(protocol);
+  const link = el("a", { href: "#", class: "protocol-link", title: "Abrir no sistema" }, `#${protocol}`);
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    const url = `${frontBaseUrl}/health-insurance/result-status?q=${encodeURIComponent(protocol)}&filter_by=protocol&status=all&health_insurance_id=all`;
+    chrome.tabs.create({ url });
+  });
+  return link;
+}
+
 async function mountManualQueue(container, { frontBaseUrl }) {
   const refreshBtn = el("button", { class: "primary" }, "Atualizar fila");
   const pushAllBtn = el("button", { class: "secondary" }, "Sincronizar todos");
@@ -54,7 +66,7 @@ async function mountManualQueue(container, { frontBaseUrl }) {
     const rows = state.items.map((it) => {
       const rowState = state.rowStates.get(it.external_request_id) || it.result_sync_status || "pending";
       return {
-        protocol: it.protocol || "—",
+        protocol: protocolCell(it.protocol, frontBaseUrl),
         patient: it.patient_name || "—",
         clinic: it.clinic_name || "—",
         external: it.external_request_id,
@@ -244,7 +256,7 @@ async function mountAutoHistory(container, settings, { frontBaseUrl } = {}) {
         listEl.appendChild(
           table(
             [
-              { key: "protocol", label: "Protocolo", render: (r) => r.protocol || "—" },
+              { key: "protocol", label: "Protocolo", render: (r) => protocolCell(r.protocol, frontBaseUrl) },
               { key: "patient", label: "Pet", render: (r) => r.patient_name || "—" },
               { key: "clinic", label: "Clínica", render: (r) => r.clinic_name || "—" },
               { key: "external", label: "ID Petlove", render: (r) => r.external_request_id },

@@ -186,6 +186,12 @@ function stripEnrichment(normalized) {
   return { ...rest, exams: cleanExams };
 }
 
+const PETLOVE_ACCEPT_COMPLETE_DELAY_MS = 4000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function pushOneResult({ mappingIds, externalRequestId, attachments }) {
   const sess = await getPetloveSession();
   try {
@@ -197,6 +203,7 @@ async function pushOneResult({ mappingIds, externalRequestId, attachments }) {
       acceptedAt,
     });
 
+    await sleep(PETLOVE_ACCEPT_COMPLETE_DELAY_MS);
     await petloveApi.completeRequest(sess, externalRequestId, attachments);
     const completedAt = new Date().toISOString();
     await yzilab.resultPushConfirm({

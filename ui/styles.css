@@ -560,3 +560,15 @@ table.data tr:hover td {
   margin-bottom: 8px;
 }
 .auto-banner strong { font-weight: 600; }
+
+.manage-row {
+  margin: 0 0 10px 0;
+  font-size: 11.5px;
+}
+.manage-sync-link {
+  color: var(--brand-strong);
+  text-decoration: none;
+  font-weight: 500;
+}
+.manage-sync-link:hover { text-decoration: underline; }
+.manage-icon { margin-right: 2px; }

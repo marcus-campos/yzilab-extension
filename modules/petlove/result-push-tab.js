@@ -4,14 +4,26 @@ import { el, clear, table, badge, toast, spinnerText } from "../../ui/components
 export async function mountResultPushTab(container) {
   clear(container);
   const settings = await send(MSG.GET_SETTINGS);
+  const frontBaseUrl = (settings?.yzilabFrontUrl || "https://app.animalex.com.br").replace(/\/$/, "");
   if (settings && settings.autoSyncEnabled) {
-    return mountAutoHistory(container, settings);
+    return mountAutoHistory(container, settings, { frontBaseUrl });
   }
-  return mountManualQueue(container);
+  return mountManualQueue(container, { frontBaseUrl });
 }
 
-// ─── Modo manual: fila de envio com botões por linha ──────────────────────
-async function mountManualQueue(container) {
+function manageLink(frontBaseUrl) {
+  const link = el("a", { href: "#", class: "manage-sync-link" }, [
+    el("i", { class: "manage-icon" }, "⚙"),
+    " Gerenciar sincronização",
+  ]);
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: `${frontBaseUrl}/health-insurance/result-status` });
+  });
+  return link;
+}
+
+async function mountManualQueue(container, { frontBaseUrl }) {
   const refreshBtn = el("button", { class: "primary" }, "Atualizar fila");
   const pushAllBtn = el("button", { class: "secondary" }, "Sincronizar todos");
   const statusEl = el("div", { class: "small muted" }, "");
@@ -23,6 +35,7 @@ async function mountManualQueue(container) {
       statusEl,
     ])
   );
+  container.appendChild(el("div", { class: "manage-row" }, [manageLink(frontBaseUrl)]));
   container.appendChild(listEl);
 
   const state = { items: [], rowStates: new Map() };
@@ -141,7 +154,7 @@ async function mountManualQueue(container) {
 }
 
 // ─── Modo automático: indicador + histórico do /result-sync/ ──────────────
-async function mountAutoHistory(container, settings) {
+async function mountAutoHistory(container, settings, { frontBaseUrl } = {}) {
   const intervalMin = settings.autoSyncIntervalMinutes || 15;
 
   const banner = el("div", { class: "auto-banner" }, [
@@ -174,6 +187,7 @@ async function mountAutoHistory(container, settings) {
       el("div", { class: "small muted" }, ""),
     ])
   );
+  if (frontBaseUrl) container.appendChild(el("div", { class: "manage-row" }, [manageLink(frontBaseUrl)]));
   container.appendChild(listEl);
 
   async function updateLastRun() {

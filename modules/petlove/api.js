@@ -34,16 +34,28 @@ export async function listPending(session, { page = 1, perPage = 50, filters = {
 }
 
 export async function listAllPending(session, filters = {}) {
+  const PER_PAGE = 50;
+  const MAX_PAGES = 50;
   const all = [];
+  const seenIds = new Set();
   let page = 1;
-  while (true) {
-    const result = await listPending(session, { page, perPage: 50, filters });
-    const items = result.data || [];
-    all.push(...items);
-    const meta = result.meta || {};
-    const current = meta.current_page || page;
-    const last = meta.last_page || page;
-    if (current >= last) break;
+  while (page <= MAX_PAGES) {
+    const result = await listPending(session, { page, perPage: PER_PAGE, filters });
+    const items = Array.isArray(result) ? result : result.data || [];
+    let fresh = 0;
+    for (const item of items) {
+      const key = item && item.id != null ? String(item.id) : null;
+      if (key && seenIds.has(key)) continue;
+      if (key) seenIds.add(key);
+      all.push(item);
+      fresh += 1;
+    }
+    const meta = (result && result.meta) || {};
+    if (meta.current_page && meta.last_page) {
+      if (meta.current_page >= meta.last_page) break;
+    } else if (items.length < PER_PAGE || fresh === 0) {
+      break;
+    }
     page += 1;
   }
   return all;

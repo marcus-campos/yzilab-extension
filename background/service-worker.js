@@ -194,6 +194,20 @@ function sleep(ms) {
 
 async function pushOneResult({ mappingIds, externalRequestId, attachments }) {
   const sess = await getPetloveSession();
+
+  // Pré-checagem: se o pedido já está concluído na Petlove (falso positivo de uma falha
+  // anterior, ou concluído por outro caminho), confirma como completed e evita reenviar
+  // os PDFs e reativar o erro "No query results". "finished" é o status terminal da Petlove.
+  const preStatus = await petloveApi.getRequestStatus(sess, externalRequestId).catch(() => null);
+  if (preStatus === "finished") {
+    await yzilab.resultPushConfirm({
+      mappingIds,
+      externalRequestId,
+      completedAt: new Date().toISOString(),
+    });
+    return { ok: true, externalRequestId, already_completed: true };
+  }
+
   try {
     await petloveApi.acceptRequest(sess, externalRequestId);
     const acceptedAt = new Date().toISOString();

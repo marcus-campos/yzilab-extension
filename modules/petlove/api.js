@@ -144,15 +144,27 @@ export async function completeRequest(session, requestId, attachments) {
     const file = new File([bytes], att.name, { type: att.mimetype || "application/pdf" });
     form.append("results[]", file);
   }
-  const { data } = await request(`${BASE}/api/requests-evaluation/${requestId}/complete`, {
-    method: "POST",
-    headers: authHeaders(session),
-    body: form,
-    asFormData: true,
-    credentials: "include",
-    timeoutMs: 60000,
-  });
-  return data;
+  try {
+    const { data } = await request(`${BASE}/api/requests-evaluation/${requestId}/complete`, {
+      method: "POST",
+      headers: authHeaders(session),
+      body: form,
+      asFormData: true,
+      credentials: "include",
+      timeoutMs: 60000,
+    });
+    return data;
+  } catch (err) {
+    // O complete pode falhar (timeout, reenvio, "No query results for model
+    // [UserPetTreatment]") mesmo já tendo concluído no lado da Petlove. Confirma o
+    // estado real antes de propagar — mesmo padrão do acceptRequest. "finished" é o
+    // status terminal da Petlove (laudo anexado).
+    const status = await getRequestStatus(session, requestId).catch(() => null);
+    if (status === "finished") {
+      return { ok: true, already_completed: true, status };
+    }
+    throw err;
+  }
 }
 
 function b64ToBytes(b64) {
